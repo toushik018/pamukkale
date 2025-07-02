@@ -57,7 +57,7 @@ const ProductDetails: React.FC<{ id: string; menuName: string | null }> = ({
           {/* Left Column - Image */}
           <div className="relative aspect-square">
             <Image
-              src={selectedProduct.thumb || "/images/placeholder.png"}
+              src={selectedProduct.thumb || "https://pamukkale4584.live-website.com/image/cache/no_image-200x200.png"}
               layout="fill"
               objectFit="cover"
               alt={selectedProduct.name}

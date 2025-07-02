@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState, useEffect } from "react";
+import React, { useMemo, useState } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -17,8 +17,6 @@ import { CartSkeleton } from "@/components/Skeletons/CartSkeleton";
 import { CartPackage } from "@/components/Cart/CartPackage";
 import { handleError } from "@/components/Cart/utils";
 import { CartProduct, LoadingState } from "@/types/types";
-import { getPackageMenuId } from "@/utils/menuUtils";
-import { getMenuContents } from "@/constants/categories";
 import {
   calculateExtrasTotal,
   calculateTotals,
@@ -59,7 +57,23 @@ const Cart: React.FC = () => {
   const [deletingPackageId, setDeletingPackageId] = useState<string | null>(
     null
   );
+
+  // Check if the cartData has simple products (not packages)
+  const hasSimpleProducts = useMemo(() => {
+    return (
+      cartData?.products &&
+      Array.isArray(cartData.products) &&
+      cartData.products.length > 0
+    );
+  }, [cartData]);
+
   const cartItems = useMemo(() => {
+    // Handle simple products structure (direct products array)
+    if (hasSimpleProducts) {
+      return [];
+    }
+
+    // Original package handling logic
     if (!cartData?.cart?.order) {
       return [];
     }
@@ -137,7 +151,12 @@ const Cart: React.FC = () => {
       console.error("Error processing cart items:", error);
       return [];
     }
-  }, [cartData]);
+  }, [cartData, hasSimpleProducts]);
+
+  // Simple products extraction (when direct product list is provided)
+  const simpleProducts = useMemo(() => {
+    return hasSimpleProducts ? cartData.products : [];
+  }, [cartData, hasSimpleProducts]);
 
   // Calculate extras total first
   const extrasTotal = useMemo(() => calculateExtrasTotal(cartData), [cartData]);
@@ -233,25 +252,36 @@ const Cart: React.FC = () => {
   const handleCheckout = async () => {
     setIsProcessing(true);
     try {
-      // Format cart data for checkout
-      const formattedPackages = Array.isArray(cartData?.cart?.order)
-        ? cartData.cart.order
-        : Object.values(cartData?.cart?.order || {});
+      if (hasSimpleProducts) {
+        // Format simple products for checkout
+        localStorage.setItem(
+          "checkoutData",
+          JSON.stringify({
+            products: cartData.products,
+            totals: cartData?.totals,
+          })
+        );
+      } else {
+        // Format cart data for checkout
+        const formattedPackages = Array.isArray(cartData?.cart?.order)
+          ? cartData.cart.order
+          : Object.values(cartData?.cart?.order || {});
 
-      // Make sure guest counts are included in the packages
-      const packagesWithGuests = formattedPackages.map((pkg: any) => ({
-        ...pkg,
-        guests: pkg.guests || null,
-      }));
+        // Make sure guest counts are included in the packages
+        const packagesWithGuests = formattedPackages.map((pkg: any) => ({
+          ...pkg,
+          guests: pkg.guests || null,
+        }));
 
-      // Store the formatted data for use in checkout
-      localStorage.setItem(
-        "checkoutData",
-        JSON.stringify({
-          packages: packagesWithGuests,
-          totals: cartData?.totals,
-        })
-      );
+        // Store the formatted data for use in checkout
+        localStorage.setItem(
+          "checkoutData",
+          JSON.stringify({
+            packages: packagesWithGuests,
+            totals: cartData?.totals,
+          })
+        );
+      }
 
       router.push("/checkout");
     } catch (error) {
@@ -316,6 +346,10 @@ const Cart: React.FC = () => {
     );
   }
 
+  const isEmpty =
+    (!hasSimpleProducts && cartItems.length === 0) ||
+    (hasSimpleProducts && simpleProducts.length === 0);
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
       <div className="max-w-7xl mx-auto px-4 md:px-8 py-12">
@@ -337,7 +371,7 @@ const Cart: React.FC = () => {
                       </div>
                       Ihr Warenkorb
                     </h1>
-                    {cartItems.length > 0 && (
+                    {!isEmpty && (
                       <button
                         onClick={handleClearCart}
                         disabled={isDeleting}
@@ -363,7 +397,7 @@ const Cart: React.FC = () => {
               </div>
 
               {/* Cart Items */}
-              {cartItems.length === 0 ? (
+              {isEmpty ? (
                 <motion.div
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
@@ -395,64 +429,150 @@ const Cart: React.FC = () => {
               ) : (
                 <div className="space-y-6">
                   <AnimatePresence mode="wait">
-                    {Array.isArray(cartData?.cart?.order)
-                      ? cartData.cart.order.map(
-                          (pkg: PackageOrder, index: number) => (
-                            <motion.div
-                              key={`${pkg.package}-${index}`}
-                              initial={{ opacity: 0, y: 20 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              exit={{ opacity: 0, y: -20 }}
-                            >
-                              <CartPackage
-                                pkg={pkg}
-                                cartData={cartData}
-                                onIncrement={handleIncrement}
-                                onDecrement={handleDecrement}
-                                onRemove={handleRemove}
-                                loadingStates={loadingStates}
-                                isDeleting={
-                                  isDeleting && deletingPackageId === pkg.id
-                                }
-                                handleDeletePackage={() =>
-                                  handleDeletePackage(pkg.id!, pkg.package)
-                                }
-                              />
-                            </motion.div>
-                          )
-                        )
-                      : Object.values(cartData?.cart?.order || {}).map(
-                          (pkg, index) => {
-                            const packageOrder = pkg as PackageOrder;
-                            return (
+                    {/* Show simple products if they exist */}
+                    {hasSimpleProducts ? (
+                      <motion.div
+                        key="simple-products"
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -20 }}
+                        className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden"
+                      >
+                        <div className="p-6">
+                          <h2 className="text-xl font-semibold text-gray-800 mb-6">
+                            Ihre Produkte
+                          </h2>
+                          <div className="space-y-4">
+                            {simpleProducts.map((product: any) => (
                               <motion.div
-                                key={`${packageOrder.package}-${index}`}
-                                initial={{ opacity: 0, y: 20 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0, y: -20 }}
+                                key={product.cart_id}
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                className="flex items-center justify-between p-4 bg-gray-50 rounded-xl"
                               >
-                                <CartPackage
-                                  pkg={packageOrder}
-                                  cartData={cartData}
-                                  onIncrement={handleIncrement}
-                                  onDecrement={handleDecrement}
-                                  onRemove={handleRemove}
-                                  loadingStates={loadingStates}
-                                  isDeleting={
-                                    isDeleting &&
-                                    deletingPackageId === packageOrder.id
-                                  }
-                                  handleDeletePackage={() =>
-                                    handleDeletePackage(
-                                      packageOrder.id!,
-                                      packageOrder.package
-                                    )
-                                  }
-                                />
+                                <div className="flex items-center gap-4">
+                                  <div>
+                                    <h3 className="font-medium text-gray-800">
+                                      {product.name}
+                                    </h3>
+                                    <div className="flex items-center gap-2 text-sm text-gray-500 mt-1">
+                                      <span>Menge: {product.quantity}</span>
+                                      {product.price !== "$0.00" && (
+                                        <span>• Preis: {product.price}</span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-4">
+                                  <div className="flex items-center border border-gray-200 rounded-lg">
+                                    <button
+                                      onClick={() =>
+                                        handleDecrement({
+                                          ...product,
+                                          price: product.price,
+                                        })
+                                      }
+                                      disabled={loadingStates[product.cart_id]}
+                                      className="px-3 py-1 text-gray-600 hover:bg-gray-100 transition-colors"
+                                    >
+                                      -
+                                    </button>
+                                    <span className="px-3 py-1 text-gray-800">
+                                      {product.quantity}
+                                    </span>
+                                    <button
+                                      onClick={() =>
+                                        handleIncrement({
+                                          ...product,
+                                          price: product.price,
+                                        })
+                                      }
+                                      disabled={loadingStates[product.cart_id]}
+                                      className="px-3 py-1 text-gray-600 hover:bg-gray-100 transition-colors"
+                                    >
+                                      +
+                                    </button>
+                                  </div>
+                                  <button
+                                    onClick={() =>
+                                      handleRemove({
+                                        ...product,
+                                        price: product.price,
+                                      })
+                                    }
+                                    className="p-2 hover:bg-red-50 rounded-lg"
+                                  >
+                                    <Trash2 className="w-4 h-4 text-red-500" />
+                                  </button>
+                                </div>
                               </motion.div>
-                            );
-                          }
-                        )}
+                            ))}
+                          </div>
+                        </div>
+                      </motion.div>
+                    ) : (
+                      // Original package rendering
+                      <>
+                        {Array.isArray(cartData?.cart?.order)
+                          ? cartData.cart.order.map(
+                              (pkg: PackageOrder, index: number) => (
+                                <motion.div
+                                  key={`${pkg.package}-${index}`}
+                                  initial={{ opacity: 0, y: 20 }}
+                                  animate={{ opacity: 1, y: 0 }}
+                                  exit={{ opacity: 0, y: -20 }}
+                                >
+                                  <CartPackage
+                                    pkg={pkg}
+                                    cartData={cartData}
+                                    onIncrement={handleIncrement}
+                                    onDecrement={handleDecrement}
+                                    onRemove={handleRemove}
+                                    loadingStates={loadingStates}
+                                    isDeleting={
+                                      isDeleting && deletingPackageId === pkg.id
+                                    }
+                                    handleDeletePackage={() =>
+                                      handleDeletePackage(pkg.id!, pkg.package)
+                                    }
+                                  />
+                                </motion.div>
+                              )
+                            )
+                          : Object.values(cartData?.cart?.order || {}).map(
+                              (pkg, index) => {
+                                const packageOrder = pkg as PackageOrder;
+                                return (
+                                  <motion.div
+                                    key={`${packageOrder.package}-${index}`}
+                                    initial={{ opacity: 0, y: 20 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, y: -20 }}
+                                  >
+                                    <CartPackage
+                                      pkg={packageOrder}
+                                      cartData={cartData}
+                                      onIncrement={handleIncrement}
+                                      onDecrement={handleDecrement}
+                                      onRemove={handleRemove}
+                                      loadingStates={loadingStates}
+                                      isDeleting={
+                                        isDeleting &&
+                                        deletingPackageId === packageOrder.id
+                                      }
+                                      handleDeletePackage={() =>
+                                        handleDeletePackage(
+                                          packageOrder.id!,
+                                          packageOrder.package
+                                        )
+                                      }
+                                    />
+                                  </motion.div>
+                                );
+                              }
+                            )}
+                      </>
+                    )}
                   </AnimatePresence>
                 </div>
               )}
@@ -460,7 +580,7 @@ const Cart: React.FC = () => {
           </div>
 
           {/* Cart Summary - Sticky Sidebar */}
-          {cartItems.length > 0 && (
+          {!isEmpty && (
             <motion.div
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}

@@ -1,66 +1,42 @@
 import React, { useState } from "react";
 import {
-  ChevronLeft,
-  ChevronRight,
-  Loader2,
-  Trash2,
   ShoppingBag,
+  Trash2,
+  Loader2,
+  ChevronRight,
+  ChevronUp,
+  ChevronDown,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRemoveProductMutation } from "@/services/api";
 import { toast } from "sonner";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { CartPriceCalculation } from "./CartPriceCalculation";
 
 interface CartSummaryProps {
   cartData: any;
-  currentCategory: {
-    name?: string;
-    count?: number;
-  };
-  getCurrentCategoryCount: () => number;
-  activeStep: number;
-  menuContents: any[];
-  onPrevious: () => void;
   onNext: () => void;
 }
 
-const CartSummary: React.FC<CartSummaryProps> = ({
-  cartData,
-  currentCategory,
-  getCurrentCategoryCount,
-  activeStep,
-  menuContents,
-  onPrevious,
-  onNext,
-}) => {
+const CartSummary: React.FC<CartSummaryProps> = ({ cartData, onNext }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [removingId, setRemovingId] = useState<string | null>(null);
-  const [removeProduct] = useRemoveProductMutation();
   const [isExpanded, setIsExpanded] = useState(false);
+  const [removeProduct] = useRemoveProductMutation();
 
-  const isExtrasCategory = currentCategory?.name === "Extras";
+  const { total } = CartPriceCalculation(cartData);
+  const hasItems = cartData?.products && cartData.products.length > 0;
   const totalItems =
     cartData?.products?.reduce(
       (sum: number, product: any) => sum + Number(product.quantity),
       0
     ) || 0;
-  const totalPrice =
-    cartData?.products?.reduce((sum: number, product: any) => {
-      const price = parseFloat(product.price.replace("€", "").trim());
-      return sum + price * Number(product.quantity);
-    }, 0) || 0;
 
   const handleNext = async () => {
+    if (!hasItems) return;
     setIsLoading(true);
     try {
-      if (
-        isExtrasCategory ||
-        getCurrentCategoryCount() >= (currentCategory?.count || 0)
-      ) {
-        await onNext();
-      } else {
-        toast.error(`Bitte wählen Sie ${currentCategory?.count} Produkte aus.`);
-      }
+      onNext();
     } catch (error) {
       console.error("Navigation error:", error);
     } finally {
@@ -91,40 +67,8 @@ const CartSummary: React.FC<CartSummaryProps> = ({
       >
         <div className="max-w-[1800px] mx-auto">
           <div className="flex items-center justify-between p-4">
-            {/* Selection Progress */}
+            {/* Cart Summary */}
             <div className="flex items-center gap-6">
-              {/* Current Selection Info */}
-              <div className="flex items-center gap-3">
-                <div className="flex flex-col">
-                  <span className="text-sm text-accentGray">
-                    Aktuelle Auswahl
-                  </span>
-                  <div className="flex items-center gap-2 font-medium text-second">
-                    <span>{getCurrentCategoryCount()}</span>
-                    <span className="text-accentGray">/</span>
-                    <span>{currentCategory?.count || 0}</span>
-                    <span className="text-sm text-accentGray ml-1">
-                      {currentCategory?.name}
-                    </span>
-                  </div>
-                </div>
-                <div className="w-20 h-1.5 rounded-full bg-third overflow-hidden">
-                  <motion.div
-                    className="h-full bg-second rounded-full"
-                    initial={{ width: 0 }}
-                    animate={{
-                      width: `${
-                        (getCurrentCategoryCount() /
-                          (currentCategory?.count || 1)) *
-                        100
-                      }%`,
-                    }}
-                    transition={{ duration: 0.5, ease: "easeOut" }}
-                  />
-                </div>
-              </div>
-
-              {/* Cart Summary */}
               <button
                 onClick={() => setIsExpanded(!isExpanded)}
                 className="flex items-center gap-3 px-4 py-2 bg-third/10 rounded-xl hover:bg-third/20 transition-colors"
@@ -138,52 +82,40 @@ const CartSummary: React.FC<CartSummaryProps> = ({
                   )}
                 </div>
                 <div className="text-left">
-                  <div className="text-sm text-accentGray">Gesamt</div>
+                  <div className="text-sm text-accentGray">Gesamtbetrag</div>
                   <div className="font-medium text-second">
-                    {totalPrice.toFixed(2)}€
+                    {total.toFixed(2)}€
                   </div>
+                </div>
+                <div className="ml-2 text-second/60">
+                  {isExpanded ? (
+                    <ChevronDown className="w-4 h-4" />
+                  ) : (
+                    <ChevronUp className="w-4 h-4" />
+                  )}
                 </div>
               </button>
             </div>
 
-            {/* Navigation */}
-            <div className="flex gap-3">
-              <button
-                onClick={onPrevious}
-                disabled={activeStep === 0 || isLoading}
-                className="flex items-center justify-center gap-2 px-6 py-3 border-2 border-third rounded-xl text-second font-medium 
-                         hover:bg-third/10 disabled:opacity-50 disabled:hover:bg-transparent transition-colors"
-              >
-                <ChevronLeft className="w-5 h-5" />
-                <span>Zurück</span>
-              </button>
-              <button
-                onClick={handleNext}
-                disabled={
-                  isLoading ||
-                  (!isExtrasCategory &&
-                    getCurrentCategoryCount() < (currentCategory?.count || 0))
-                }
-                className="flex items-center justify-center gap-2 px-8 py-3 bg-second rounded-xl text-first font-medium 
-                         hover:bg-second/90 transition-colors disabled:opacity-70"
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                    <span>Wird geladen...</span>
-                  </>
-                ) : (
-                  <>
-                    <span>
-                      {activeStep === menuContents.length - 1
-                        ? "Warenkorb ansehen"
-                        : "Weiter"}
-                    </span>
-                    <ChevronRight className="w-5 h-5" />
-                  </>
-                )}
-              </button>
-            </div>
+            {/* Action Button */}
+            <button
+              onClick={handleNext}
+              disabled={isLoading || !hasItems}
+              className="flex items-center justify-center gap-2 px-8 py-3 bg-second rounded-xl text-first font-medium 
+                     hover:bg-second/90 transition-colors disabled:opacity-70"
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <span>Wird geladen...</span>
+                </>
+              ) : (
+                <>
+                  <span>Zum Warenkorb</span>
+                  <ChevronRight className="w-5 h-5" />
+                </>
+              )}
+            </button>
           </div>
 
           {/* Expandable Cart Details */}
@@ -197,7 +129,7 @@ const CartSummary: React.FC<CartSummaryProps> = ({
               >
                 <ScrollArea className="h-[300px]">
                   <div className="p-4">
-                    {!cartData?.products || cartData.products.length === 0 ? (
+                    {!hasItems ? (
                       <div className="text-center py-8 text-accentGray">
                         Ihr Warenkorb ist leer
                       </div>
@@ -212,15 +144,6 @@ const CartSummary: React.FC<CartSummaryProps> = ({
                             className="flex items-center justify-between p-3 bg-third/5 rounded-xl"
                           >
                             <div className="flex items-center gap-3">
-                              <div className="w-12 h-12 rounded-lg overflow-hidden bg-third/10">
-                                <img
-                                  src={
-                                    product.thumb || "/images/placeholder.png"
-                                  }
-                                  alt={product.name}
-                                  className="w-full h-full object-cover"
-                                />
-                              </div>
                               <div>
                                 <p className="font-medium text-second">
                                   {product.name}

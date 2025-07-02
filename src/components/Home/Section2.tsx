@@ -12,6 +12,7 @@ import GuestsCountModal from "@/components/Modals/GuestsCountModal";
 import { Package } from "@/types/package";
 import { clearToken } from "@/redux/slices/sessionSlice";
 import { useRouter } from "next/navigation";
+import { Button } from "../ui/button";
 
 const Section2 = () => {
   const isInitialized = useSelector(
@@ -97,9 +98,8 @@ const Section2 = () => {
           </p>
         </motion.div>
 
-        {/* Content Section */}
         <div className="min-h-[600px] relative z-20">
-          {error ? (
+          {/* {error ? (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -120,7 +120,6 @@ const Section2 = () => {
             </motion.div>
           ) : (
             <>
-              {/* Cards Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-7xl mx-auto relative z-20">
                 {products.map((item: Package, idx: number) => (
                   <motion.div
@@ -146,22 +145,27 @@ const Section2 = () => {
                 ))}
               </div>
 
-              {/* Empty State */}
+
               {products.length === 0 && (
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   className="text-center py-20 bg-white rounded-2xl shadow-sm"
                 >
-                  {/* Empty state content */}
                 </motion.div>
               )}
             </>
-          )}
+          )} */}
+
+          <Link href="/shop" className="w-full">
+            <Button variant="outline" className="w-full">
+              go to shop
+            </Button>
+          </Link>
         </div>
       </div>
 
-      {selectedPackage && (
+      {/* {selectedPackage && (
         <div className="relative z-50">
           <GuestsCountModal
             isOpen={showGuestsModal}
@@ -173,7 +177,7 @@ const Section2 = () => {
             onSubmit={handleGuestCountSubmit}
           />
         </div>
-      )}
+      )} */}
     </section>
   );
 };

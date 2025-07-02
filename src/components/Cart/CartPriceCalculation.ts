@@ -108,4 +108,16 @@ export const formatExtrasTotal = (extrasTotal: number): string => {
         style: "currency",
         currency: "EUR",
     }).format(extrasTotal);
+};
+
+export const CartPriceCalculation = (cartData: any) => {
+    if (!cartData?.products || !Array.isArray(cartData.products)) {
+        return { total: 0 };
+    }
+
+    const total = cartData.products.reduce((sum: number, item: any) => {
+        return sum + (Number(item.quantity) * Number(item.price));
+    }, 0);
+
+    return { total };
 }; 

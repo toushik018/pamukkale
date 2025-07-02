@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
         }
 
         const response = await axios.post(
-            `${process.env.NEXT_PUBLIC_API_ENDPOINT}/sale/view`,
+            `${process.env.NEXT_PUBLIC_API_ENDPOINT}/sale/cart`,
             {},
             {
                 headers: { "Content-Type": "multipart/form-data" },

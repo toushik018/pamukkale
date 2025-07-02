@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
-import { FiCheck } from "react-icons/fi";
 import Link from "next/link";
 import {
   useAddToCartMutation,
@@ -12,38 +11,23 @@ import {
 } from "@/services/api";
 import { Product } from "@/types/product";
 import { FaMinus, FaPlus } from "react-icons/fa";
-import { useDispatch, useSelector } from "react-redux";
-import {
-  setSelectedProduct,
-  showExtraModal,
-  clearSelectedProduct,
-  selectIsExtraMode,
-} from "@/redux/slices/extraSlice";
-import { useAddExtraMutation } from "@/services/api";
 import { Loader2 } from "lucide-react";
 
 interface HorizontalMenuCardProps {
   product: Product;
-  activeCategoryName: string;
 }
 
-const HorizontalMenuCard = ({
-  product,
-  activeCategoryName,
-}: HorizontalMenuCardProps) => {
+const HorizontalMenuCard = ({ product }: HorizontalMenuCardProps) => {
   const [localQuantity, setLocalQuantity] = useState(0);
   const [isEditing, setIsEditing] = useState(false);
   const [inputValue, setInputValue] = useState("");
   const [isUpdating, setIsUpdating] = useState(false);
+  const [isAdding, setIsAdding] = useState(false);
 
   const { data: cartData, refetch: refetchCart } = useGetCartQuery();
   const [addToCart] = useAddToCartMutation();
   const [editProduct] = useEditProductMutation();
   const [removeProduct] = useRemoveProductMutation();
-
-  const dispatch = useDispatch();
-  const isExtraMode = useSelector(selectIsExtraMode);
-  const [addExtra] = useAddExtraMutation();
 
   useEffect(() => {
     const cartItem = cartData?.products?.find(
@@ -94,34 +78,26 @@ const HorizontalMenuCard = ({
   };
 
   const handleIncrement = async () => {
+    setIsAdding(true);
     const toastId = toast.loading("Warenkorb aktualisieren...");
     try {
-      if (isExtraMode) {
-        const response = await addExtra({
-          product_id: product.product_id,
-        }).unwrap();
+      const newQuantity = localQuantity + 1;
+      const cartItem = cartData?.products?.find(
+        (item: any) => item.product_id === product.product_id
+      );
 
-        if (response.success) {
-          toast.success("Extra erfolgreich hinzugefügt", { id: toastId });
-        }
+      if (cartItem) {
+        await editProduct({ id: cartItem.cart_id, quantity: newQuantity });
       } else {
-        const newQuantity = localQuantity + 1;
-        const cartItem = cartData?.products?.find(
-          (item: any) => item.product_id === product.product_id
-        );
-
-        if (cartItem) {
-          await editProduct({ id: cartItem.cart_id, quantity: newQuantity });
-        } else {
-          await addToCart({ id: product.product_id, quantity: 1 });
-        }
-
-        toast.success("Produkt zum Warenkorb hinzugefügt", { id: toastId });
+        await addToCart({ id: product.product_id, quantity: 1 });
       }
 
+      toast.success("Produkt zum Warenkorb hinzugefügt", { id: toastId });
       setLocalQuantity((prev) => prev + 1);
     } catch (error) {
       toast.error("Fehler beim Hinzufügen", { id: toastId });
+    } finally {
+      setIsAdding(false);
     }
   };
 
@@ -164,14 +140,15 @@ const HorizontalMenuCard = ({
       <div className="relative flex flex-col h-full bg-first rounded-2xl overflow-hidden transition-all duration-300 hover:shadow-lg border border-third">
         {/* Product Image */}
         <Link
-          href={`/shop/${product.product_id}?menuName=${encodeURIComponent(
-            activeCategoryName
-          )}`}
+          href={`/shop/${product.product_id}`}
           className="relative aspect-square w-full overflow-hidden"
         >
           <div className="absolute inset-0 bg-gradient-to-t from-second/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
           <img
-            src={product.thumb || "/images/placeholder.png"}
+            src={
+              product.thumb ||
+              "https://pamukkale4584.live-website.com/image/cache/no_image-200x200.png"
+            }
             alt={product.name}
             className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500"
           />
@@ -204,7 +181,7 @@ const HorizontalMenuCard = ({
                 <button
                   onClick={handleDecrement}
                   disabled={isUpdating}
-                  className="w-9 h-9 rounded-xl bg-third/10 text-second hover:bg-second hover:text-first flex items-center justify-center transition-all duration-300"
+                  className="w-10 h-10 rounded-xl bg-third/10 text-second hover:bg-second hover:text-first flex items-center justify-center transition-all duration-300"
                 >
                   <FaMinus className="w-3 h-3" />
                 </button>
@@ -215,10 +192,14 @@ const HorizontalMenuCard = ({
             )}
             <button
               onClick={handleIncrement}
-              disabled={isUpdating}
-              className="w-9 h-9 rounded-xl bg-second text-first flex items-center justify-center hover:bg-second/90 transition-all duration-300"
+              disabled={isUpdating || isAdding}
+              className="w-12 h-12 rounded-xl bg-second text-first flex items-center justify-center hover:bg-second/90 transition-all duration-300"
             >
-              <FaPlus className="w-3 h-3" />
+              {isAdding ? (
+                <Loader2 className="w-5 h-5 animate-spin" />
+              ) : (
+                <FaPlus className="w-4 h-4" />
+              )}
             </button>
           </div>
         </div>
